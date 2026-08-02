@@ -1,0 +1,7 @@
+services:
+  php:
+    image: php:8.3-cli
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: php -v

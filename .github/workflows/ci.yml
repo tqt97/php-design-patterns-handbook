@@ -1,0 +1,28 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - uses: ramsey/composer-install@v3
+      - run: composer validate --strict
+      - run: composer validate-repo
+      - run: composer content-integrity
+      - run: composer architecture-fitness-audit
+      - run: composer expert-practice-v2-audit
+      - run: composer property-workbook
+      - run: composer failure-injection-lab
+      - run: composer examples
+      - run: composer playgrounds
+      - run: composer katas
+      - run: composer check
