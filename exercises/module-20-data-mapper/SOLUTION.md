@@ -1,0 +1,87 @@
+# Lời giải tham khảo — Data Mapper (Foundation)
+
+## Kết luận thiết kế
+
+Lời giải chọn `DataMapper` làm boundary vì nó bao quanh phần thay đổi của **Tách domain khỏi bảng dữ liệu** nhưng không kéo validation, transaction hoặc orchestration ổn định vào abstraction. Mục tiêu là bảo vệ **domain object không phụ thuộc schema persistence**, không phải chứng minh rằng mọi bài toán đều cần Data Mapper.
+
+## Sơ đồ lời giải
+
+```mermaid
+classDiagram
+    class CustomerMapper {
+      +handle(input)
+    }
+    class DataMapper {
+      <<interface>>
+      +apply(input)
+    }
+    class CustomerDataMapper
+    class OrderDataMapper
+    CustomerMapper --> DataMapper : depends on
+    DataMapper <|.. CustomerDataMapper
+    DataMapper <|.. OrderDataMapper
+```
+
+## Các bước refactor
+
+1. Viết test cho `CustomerMapper` trước khi tách; test mô tả outcome chứ không khóa internal call.
+2. Tách phần thay đổi thành `DataMapper` với input/output cụ thể của **Tách domain khỏi bảng dữ liệu**.
+3. Di chuyển một nhánh sang implementation đầu tiên; giữ validation dùng chung tại nơi ổn định.
+4. Thay branch selection bằng dependency injection/composition root nhỏ.
+5. Thêm biến thể **thêm schema version 2** và chạy cùng contract test.
+6. So sánh với phương án đơn giản hơn: **Active Record cho ứng dụng CRUD nhỏ**; ghi khi nào nên xóa abstraction.
+
+## Phác thảo contract
+
+```php
+interface DataMapper
+{
+    /** Trả về kết quả domain hoặc ném lỗi application có nghĩa. */
+    public function apply(array $input): mixed;
+}
+```
+
+Trong implementation hoàn chỉnh của **Tách domain khỏi bảng dữ liệu**, thay `array`/`mixed` bằng input và result có tên theo domain. Contract của Data Mapper phải làm rõ precondition, postcondition và lỗi có thể quan sát; đoạn trên chỉ minh họa hướng dependency.
+
+## Test suite tối thiểu
+
+- `TachDomainKhoiBangDuLieuBehaviorTest`: dựng fixture nhỏ nhất và assert trực tiếp invariant **domain object không phụ thuộc schema persistence.** trên output/state, không assert tên concrete class.
+- `TachDomainKhoiBangDuLieuFailureTest`: tạo **mapping thiếu field hoặc hydration bypass invariant.**, kiểm tra error taxonomy và xác nhận state/side effect không ở trạng thái nửa vời.
+- `Foundation:DataMapperContractTest`: chạy cùng bộ contract cho mọi implementation hoặc variant được bài yêu cầu.
+- `ExtensionTest`: thêm một biến thể hợp lệ của Foundation: Data Mapper mà không sửa client/use case; nếu phải sửa, boundary chưa cô lập đúng change axis.
+- Một test phản chứng cho phương án đơn giản hơn để chứng minh pattern mang giá trị, không chỉ tăng số type.
+## Failure walkthrough
+
+Khi **mapping thiếu field hoặc hydration bypass invariant**, implementation không được trả `null`/`false` mơ hồ. Nó phải tạo error có taxonomy rõ, giữ correlation/operation data cần thiết và không phá invariant **domain object không phụ thuộc schema persistence**. Client test error theo semantics, không phụ thuộc message của SDK hoặc exception hạ tầng.
+
+## Trade-off và phương án thay thế
+
+Foundation: Data Mapper làm change axis của **Tách domain khỏi bảng dữ liệu** rõ hơn, đổi lại người học phải hiểu thêm contract, wiring và cách chọn implementation. Giá trị phải được chứng minh bằng việc thêm biến thể hoặc test failure mà client không đổi.
+
+Hãy ưu tiên **Active Record cho ứng dụng CRUD nhỏ** nếu bài toán chỉ có một behavior ổn định, chưa có boundary ngoài hoặc test trực tiếp đã đủ rõ. Pattern không phải mục tiêu; mục tiêu là giữ invariant **domain object không phụ thuộc schema persistence.** với thiết kế dễ đọc nhất.
+## Dấu hiệu lời giải chưa đạt
+
+- Boundary của Data Mapper không dùng ngôn ngữ **Tách domain khỏi bảng dữ liệu**, khiến người đọc vẫn phải biết concrete detail.
+- Test không chứng minh invariant **domain object không phụ thuộc schema persistence** hoặc chỉ xác nhận method được gọi.
+- Selection, transaction hay error mapping vẫn nằm rải rác ở client nên blast radius không giảm.
+- Diagram không khớp dependency thực trong code hoặc bỏ qua failure path quan trọng.
+- Thêm biến thể mới vẫn phải sửa logic trung tâm, chứng tỏ extension point đặt sai.
+
+## Câu hỏi mở rộng
+
+- Với **Tách domain khỏi bảng dữ liệu**, metric nào chứng minh Data Mapper giảm rủi ro thay đổi thay vì chỉ tăng số type?
+- Khi số biến thể tăng, ai sở hữu selection, versioning và compatibility của boundary?
+- Failure nào buộc thiết kế phải đổi, và failure nào nên được xử lý bên ngoài pattern?
+- Điều kiện cleanup nào cho phép hợp nhất implementation hoặc xóa abstraction này?
+
+## Ghi chú triển khai chuyên biệt cho Data Mapper
+
+Bài **Lời giải tham khảo — Data Mapper (Foundation)** cấp Foundation yêu cầu Mapper tái tạo domain object mà không bypass invariant; schema evolution cần fixture/version test và chiến lược đọc dữ liệu cũ.
+
+### Test focus
+
+Ở cấp **Foundation**, test round-trip, null legacy, money/timezone/enum và schema migration. Giữ test tại process boundary nhỏ nhất và ưu tiên semantics dễ đọc.
+
+### Bằng chứng nên lưu
+
+Với **Tách domain khỏi bảng dữ liệu**, lưu sơ đồ dependency trước/sau, fixture tái hiện lỗi, test chứng minh invariant, commit chuyển đổi và ADR của Data Mapper. Reviewer cần nhìn được bằng chứng rằng boundary mới giảm blast radius hoặc làm failure dễ kiểm soát hơn, không chỉ thấy nhiều class hơn.
