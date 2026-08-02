@@ -1,0 +1,51 @@
+{
+  "nodes": [
+    {
+      "id": "adr-payment-idempotency",
+      "type": "adr",
+      "path": "decisions/adr-006-idempotency-for-payment-requests.md"
+    },
+    {
+      "id": "idempotency-store",
+      "type": "source",
+      "path": "src/Infrastructure/Idempotency/InMemoryIdempotencyStore.php"
+    },
+    {
+      "id": "idempotency-test",
+      "type": "test",
+      "path": "tests/Unit/Infrastructure/Idempotency/InMemoryIdempotencyStoreTest.php"
+    },
+    {
+      "id": "payment-duplicate-rate",
+      "type": "metric",
+      "name": "payment_duplicate_suppressed_total"
+    },
+    {
+      "id": "payment-runbook",
+      "type": "runbook",
+      "path": "incident-packets/examples/payment-ambiguous-outcome.md"
+    }
+  ],
+  "edges": [
+    {
+      "from": "adr-payment-idempotency",
+      "to": "idempotency-store",
+      "type": "implements"
+    },
+    {
+      "from": "idempotency-store",
+      "to": "idempotency-test",
+      "type": "verified-by"
+    },
+    {
+      "from": "idempotency-store",
+      "to": "payment-duplicate-rate",
+      "type": "observed-by"
+    },
+    {
+      "from": "payment-duplicate-rate",
+      "to": "payment-runbook",
+      "type": "operated-with"
+    }
+  ]
+}
