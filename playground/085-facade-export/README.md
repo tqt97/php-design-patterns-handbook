@@ -1,0 +1,53 @@
+# Playground 85: Facade — Export
+
+## Mục tiêu học tập
+
+Chạy một ví dụ nhỏ về **xử lý use case export** và quan sát cách **Facade** giúp cung cấp API use-case đơn giản trước nhiều subsystem. Playground này là drill 10–15 phút; flagship playground phù hợp hơn cho luồng nhiều bước.
+
+Sau bài này, người học phải giải thích được **đơn giản hóa orchestration nhiều subsystem** trong bối cảnh export, chỉ ra dependency đã bị đảo hoặc che giấu, và nêu trường hợp giải pháp trực tiếp vẫn tốt hơn.
+
+## Bối cảnh và invariant
+
+- **Nghiệp vụ:** format, schema version, stream và file name.
+- **Invariant:** cùng dataset phải giữ schema và encoding đã cam kết.
+- **Change axis:** thay subsystem mà client không đổi.
+- **Failure bắt buộc quan sát:** writer lỗi giữa chừng hoặc dữ liệu không encode được; ở mức pattern cần chú ý thêm facade trở thành god service hoặc che giấu transaction lỗi.
+
+```mermaid
+flowchart LR
+    A[ExportRequest] --> F[Facade]
+    F --> S1[Exporter]
+    F --> S2[FormatWriter]
+    F --> S3[Storage]
+    S1 --> R[Export artifact]
+    S2 --> R
+    S3 -. failure .-> X[Partial file]
+```
+
+## Cách chạy
+
+```bash
+php playground/085-facade-export/index.php
+```
+
+Trước khi chạy, dự đoán output và ghi lại concrete detail mà client đang biết. Sau khi chạy, đối chiếu xem **cung cấp entry point theo use case** đã làm client biết ít đi điều gì, đồng thời kiểm tra invariant của export vẫn được giữ.
+
+## Thử nghiệm có hướng dẫn
+
+1. Chạy baseline và lưu output/error hiện tại.
+2. Thêm format mới và kiểm tra checksum/schema.
+3. Tạo failure **writer lỗi giữa chừng hoặc dữ liệu không encode được** và yêu cầu lỗi được biểu diễn rõ, không silent fallback.
+4. Viết test tập trung vào **cùng dataset phải giữ schema và encoding đã cam kết**.
+5. Thử bỏ abstraction; nếu code trực tiếp vẫn rõ và change axis chưa tồn tại, ghi lại lý do chưa áp dụng Facade.
+
+## Câu hỏi review
+
+- Trong miền export, phần nào là policy/domain rule và phần nào chỉ là wiring?
+- Facade bảo vệ thay đổi **thay subsystem mà client không đổi** bằng cơ chế nào?
+- Failure **writer lỗi giữa chừng hoặc dữ liệu không encode được** được phát hiện, dịch và quan sát ở boundary nào?
+- Abstraction có làm invariant **cùng dataset phải giữ schema và encoding đã cam kết** dễ test hơn không?
+- Complexity mới xuất hiện ở đâu: số class, ordering, lifecycle hay debugging?
+
+## Kết quả mong đợi
+
+Một lời giải đạt yêu cầu phải chứng minh flow export vẫn giữ invariant khi thay implementation facade, có assertion cho failure đã nêu và giải thích được trade-off của boundary mới. Không chấm điểm dựa trên số lượng interface hoặc class.
